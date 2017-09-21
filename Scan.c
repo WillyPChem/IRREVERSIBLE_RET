@@ -39,20 +39,17 @@ double omega_au = 4.134147e+16;;
 int main() {
 
   //Nanoparticles Variables here
-  //int numTime = 10000000;
-  //int zeropad = 10000000;
-  int numTime = 1000000;
-  int zeropad = 1000000;
+  int numTime = 20000000;
+  int zeropad = 2000000;
   double *E, *Mu, *Dis, *bas, *Hint;
   double complex *H, *D, *P;
-
-  //double dt = 0.001;
-  double dt = 0.01;
+  double dt = 0.001;
   int Nlevel, dim;
   
   // NP levels can be variable in principle
-  printf("  How many states are in your NP system? \n");
-  scanf("%i",&Nlevel);
+  //printf("  How many states are in your NP system? \n");
+  //scanf("%i",&Nlevel);
+  Nlevel = 2;
   dim = Nlevel*Nlevel;
   // MG variables here!
   int NlevelMG = 3;
@@ -74,7 +71,7 @@ int main() {
   fftw_complex *emissMG;
 
   // Allocate memory for FFTW arrays
-  dipole = (fftw_complex*)malloc(dft_dim*sizeof(fftw_complex));
+/*  dipole = (fftw_complex*)malloc(dft_dim*sizeof(fftw_complex));
   dipoleA= (fftw_complex*)malloc(dft_dim*sizeof(fftw_complex));
   efield = (fftw_complex*)malloc(dft_dim*sizeof(fftw_complex));
   dipoleMG = (fftw_complex*)malloc(dft_dim*sizeof(fftw_complex));
@@ -120,7 +117,7 @@ int main() {
 
   printf("  STILL GOOD AFTER FFTW PLANS\n");
   fflush(stdout);
-
+*/
   // Allocate memory for all other arrays
   // NP
   H = (double complex*)malloc(dim*sizeof(double complex));
@@ -142,8 +139,6 @@ int main() {
   basMG = (double *)malloc(dimMG*sizeof(double));
   HintMG = (double *)malloc(dimMG*sizeof(double));
 
-  printf("  STILL GOOD AFTER MALLOCS\n");
-  fflush(stdout);
   // Variables for instantaneous quantities  
   double tr, trMG;
   double complex dipole_moment, dipole_momentMG;
@@ -162,26 +157,17 @@ int main() {
   FILE *Efp, *Mufp, *Disfp, *EfpMG, *MufpMG, *DisfpMG, *absfp, *emsfp;
 
   // INPUT FILES!
-  Efp = fopen("MATRICES/Energy_Ag.txt","r");
-  Mufp = fopen("MATRICES/Dipole_Ag.txt","r");
-  Disfp = fopen("MATRICES/Dissipation_Ag.txt","r");
+  Efp = fopen("MATRICES/Energy_Au.txt","r");
+  Mufp = fopen("MATRICES/Dipole_Au.txt","r");
+  Disfp = fopen("MATRICES/Dissipation_Au.txt","r");
 
   EfpMG = fopen("MATRICES/Energy3LDye.txt","r");
   MufpMG = fopen("MATRICES/Dipole3LDye.txt","r");
-  DisfpMG = fopen("MATRICES/Dissipation3LDye_2Ag.txt","r");
-
-  // OUTPUT FILES!  MAKE SURE NAMES ARE CONSISTENT
-  dfp = fopen("DATA/DipoleMoment_50_2Ag.dat","w");
-  dfpMG = fopen("DATA/DipoleMomentMG_50_2Ag.dat", "w");
-  popfp = fopen("DATA/Population_50_2Ag.dat","w");
-  popMGfp = fopen("DATA/PopulationMG_50_2Ag.dat","w");
-  ecumfp = fopen("DATA/CumulativeEnergyTransfer_50_2Ag.dat","w");
-  emsfp = fopen("DATA/EmissionSpectru_50_2Ag.dat","w");
-  absfp = fopen("DATA/AbsorptionSpectrum_50_2Ag.dat","w");
+  DisfpMG = fopen("MATRICES/Dissipation3LDye.txt","r");
 
 
-  printf("  STILL GOOD AFTER MATRICES READS\n");
-  fflush(stdout);
+  //printf("  STILL GOOD AFTER MATRICES READS\n");
+  //fflush(stdout);
   // Density matrix element D(i,j) is accessed as D[i*Nlevel+j];
   D[0] = 1. + 0.*I;
   DMG[0] = 1. + 0.*I;
@@ -248,82 +234,61 @@ int main() {
 
 
   }
-  
-  // Print parameters to screen
-  printf("\nE\n");
-  PrintRealMatrix(Nlevel, E);
-  printf("\nMu\n");
-  PrintRealMatrix(Nlevel,Mu);
-  printf("\nDis\n");
-  PrintRealMatrix(Nlevel,Dis);
-  printf("\nBas\n");
-  PrintRealMatrix(Nlevel,bas);
-  printf("\nDM\n");
-  PrintComplexMatrix(Nlevel,D);
+  double E_donor    = E[2*1+1];
+  double E_acceptor = EMG[3*2+2];
+  double g_acceptor = DisMG[3*2+2];
+  EMG[3*2+2] = E_donor;
 
-  printf("\nEMG\n");
-  PrintRealMatrix(NlevelMG, EMG);
-  printf("\nMuMG\n");
-  PrintRealMatrix(NlevelMG, MuMG);
-  printf("\nDisMG\n");
-  PrintRealMatrix(NlevelMG, DisMG);
-  printf("\nBasMG\n");
-  PrintRealMatrix(NlevelMG, basMG);
-  printf("\nDMG\n");
-  PrintComplexMatrix(NlevelMG, DMG);
+  // Loop over donor energy
+  int lmax, halflmax;
+  lmax = 500;
+  halflmax = lmax/2;
 
+  double dE = (4.*E_acceptor-E_acceptor/4.)/(lmax-1.);
+  double dG = (5.*g_acceptor-g_acceptor/500.)/(lmax-1.);
 
+  //for (int i=1; i<=lmax; i++) {
+  for (int i=0; i<1; i++) {
+  printf("\n");
+  //E[2*1+1] = E_acceptor/4. + i*dE;
+  E[2*1+1] = E_donor;
+  for (int j=0; j<lmax; j++) {
+
+  DisMG[3*1+1] = g_acceptor/500. + j*dG;
+  DisMG[3*2+2] = g_acceptor/500. + j*dG;
   // Get initial dipole moments
+
+  // Re-initialize density matrix
+  D[0] = 1. + 0.*I;
+  DMG[0] = 1. + 0.*I;
+  // NP
+  for (int i=1; i<dim; i++){
+    D[i] = 0. + 0.*I;
+  }
+  // MG
+  for (int i=1; i<dimMG; i++){
+    DMG[i] = 0. + 0.*I;
+  }
+
   dipole_moment = TrMuD(Nlevel, Mu, D)*mu_au_to_si;
   dipole_momentMG = TrMuD(NlevelMG, MuMG, DMG)*mu_au_to_si;
 
-  FillDFTArray(0, creal(dipole_moment), cimag(dipole_moment), dipole);
-  FillDFTArray(0, creal(dipole_momentMG), cimag(dipole_momentMG), dipoleMG);
-  FillDFTArray(0, 0., 0., efield);
+  //FillDFTArray(0, creal(dipole_moment), cimag(dipole_moment), dipole);
+  //FillDFTArray(0, creal(dipole_momentMG), cimag(dipole_momentMG), dipoleMG);
+  //FillDFTArray(0, 0., 0., efield);
 
 
   //void H_interaction(int dim, double *Hint, double *mu, double dpm, double R) 
   H_interaction(Nlevel, Hint, Mu, creal(dipole_momentMG), r); 
   H_interaction(NlevelMG, HintMG, MuMG, creal(dipole_moment), r);
 
-  double max_MG_Error, MG_Error;
-  double EnMG, E_Transfer, TransferTime;
-  double e1_curr, e1_prev, e1_cum, e2_curr, e2_prev, e2_cum;
-  e1_curr = 0.;
-  e1_prev = 0.;
-  e1_cum = 0.;
-  e2_curr = 0.;
-  e2_prev = 0.;
-  e2_cum = 0.;
-  max_MG_Error = D_Error(NlevelMG*NlevelMG, DMG);
   for (int i=1; i<numTime; i++) {
 
-    // Get amount of energy transferred into the excited states of MG as of last step
-    e1_prev = creal(DMG[1*NlevelMG+1])*EMG[1*NlevelMG+1];
-    e2_prev = creal(DMG[2*NlevelMG+2])*EMG[2*NlevelMG+2];
-
-    // How perturbed is the Density Matrix on MG?
-    MG_Error = D_Error(NlevelMG*NlevelMG, DMG);
-
-    // What is the energy of MG system now?
-    EnMG = creal(TrMuD(NlevelMG, EMG, DMG));
-
-    // If more perturbed than before, update max_MG_Error
-    // And E_Transfer
-    if (MG_Error > max_MG_Error) {
-
-      max_MG_Error = MG_Error;
-      E_Transfer = EnMG;
-      TransferTime = i*dt;
-
-    }
-    
     // Update the NP 
     RK3(Nlevel, dt*i, bas, E, Hint, Mu, Dis, D, dt);
 
     // Calculate dipole moment of NP
     dipole_moment = TrMuD(Nlevel, Mu, D); 
-    FillDFTArray(i, creal(dipole_moment*mu_au_to_si), cimag(dipole_moment*mu_au_to_si), dipole);
 
     // Calculate interaction matrix between NP and MG: H_int^{np->mg}    
     H_interaction(NlevelMG, HintMG, MuMG, creal(dipole_moment), r);
@@ -334,131 +299,23 @@ int main() {
     
     // Calculate the dipole moment of MG
     dipole_momentMG = TrMuD(NlevelMG, MuMG, DMG);
-    FillDFTArray(i, creal(dipole_momentMG*mu_au_to_si), cimag(dipole_momentMG*mu_au_to_si), dipoleMG);
     
     // Calculate interaction matrix between MG and NP: H_int^{mg->np} 
     H_interaction(Nlevel, Hint, Mu, creal(dipole_momentMG), r); 
    
-    // Get amount of energy tranfserred into the excited states of MG as of now
-    e1_curr = creal(DMG[1*NlevelMG+1])*EMG[1*NlevelMG+1];
-    e2_curr = creal(DMG[2*NlevelMG+2])*EMG[2*NlevelMG+2];
-
-    // Is there more than before?  If so, incrementally increase cumulative energy transferred to that state
-    if (e1_curr>e1_prev) e1_cum+=(e1_curr-e1_prev);
-    if (e2_curr>e2_prev) e2_cum+=(e2_curr-e2_prev);
-
-    // Print population data!
-    fprintf(popfp,"\n %f ",dt*i);
-    fprintf(popMGfp,"\n %f ",dt*i);
-    tr=0.;
-    trMG = 0.;
-    for (int j=0; j<Nlevel; j++) {
-
-      fprintf(popfp," %12.10e",creal(D[j*Nlevel+j]));
-      tr+=creal(D[j*Nlevel+j]);
-
-    }
-    for (int j=0; j<NlevelMG; j++) {
-
-
-      fprintf(popMGfp,"  %12.10e",creal(DMG[j*NlevelMG+j]));
-      trMG+=creal(DMG[j*NlevelMG+j]);
-
-    }
-    fprintf(popfp," %12.10e",tr);
-    fprintf(popMGfp," %12.10e",trMG);
-  
-    // Print data on energy transferred to MG (from field and from NP)
-    fprintf(ecumfp, "%f   %12.10e  %12.10e  %12.10e  %12.10e\n",dt*i,e1_curr, e1_cum,e2_curr, e2_cum);
-
-    // Print dipole moment of NP
-    fprintf(dfp," %f  %12.10e  %12.10e\n",dt*i,creal(dipole_moment),cimag(dipole_moment));
-  
-    // Print dipole moment of MG
-    fprintf(dfpMG,"%f %12.10e %12.10e\n",dt*i,creal(dipole_momentMG),cimag(dipole_momentMG));
- 
-    FillDFTArray(i,  E_au_to_si*E_Field(dt*i), 0, efield);
   }
+  // Energy transferred is proportional to E_3 * pop_2  
+  double E_transfer = EMG[3*2+2]*creal(DMG[3*1+1])*27.211;
+  double gam_D = Dis[2*1+1]*27.211;
+  double gam_A = DisMG[3*1+1]*27.211;
+  double E_D = E[2*1+1]*27.211;
+  double E_A = EMG[3*2+2]*27.211;
   
-  printf("  E_mg_1 is %12.10f: \n", EMG[3*1+1]*27.211);
-  printf("  E_mg_2 is %12.10f: \n", EMG[3*2+2]*27.211); 
-  printf("  Max(||D(0)-D(t)||) is %12.10e at t=%12.10e\n",max_MG_Error,TransferTime);
-
-  printf("  r_x          r_y         r_z          E_PEAK(eV)       E_e1(eV)          E_e2(eV)          E_tot(eV)\n");
-  printf("  %6.3e    %6.3e   %6.3e    %12.10e %12.10e  %12.10e  %12.10e\n",r[0],r[1],r[2],E_Transfer*27.211, e1_cum*27.211, e2_cum*27.211, (e1_cum+e2_cum)*27.211);
-
-
-  // Compute dipole accelration for NP and MG system 
-  DipoleAcceleration(numTime, dt, dipole, dipoleA);
-  DipoleAcceleration(numTime, dt, dipoleMG, dipoleMGA);
-
-  // Now to the spectra!
-  for (int i=numTime; i<zeropad; i++) {
-
-    FillDFTArray(i, 0., 0., dipole);
-    FillDFTArray(i, 0., 0., dipoleMG);
-    FillDFTArray(i, 0., 0., efield);
-    FillDFTArray(i, 0., 0., dipoleA);
-    FillDFTArray(i, 0., 0., dipoleMGA);
+  //printf("  E_D          E_A         g_D        g_A        E_tot(eV)\n");
+  printf("  %8.6e    %8.6e   %8.6e  %8.6e  %8.6e\n",E_D, E_A, gam_D, gam_A, E_transfer);
 
   }
- 
-  fftw_execute(npp);
-  fftw_execute(mgp);
-  fftw_execute(efp);
-  fftw_execute(emp);
-  fftw_execute(emgp);
- 
-  
-  fprintf(absfp, "#  Energy (ev)    SCAT NP      SCAT MG       ABS NP       ABS MG\n");
-  
-  int nfreq = 5001;
-  // ~6.48 eV is max energy/ max freq
-  double maxfreq = 70*0.08188379587298;
-  double df = maxfreq / (nfreq - 1);
-  double eps_0 = 1.0 / (4.0 * M_PI);
-  for (int i=1; i<(numTime+zeropad); i++) {
-
-    // This is omega in atomic units - same as energy in atomic units
-    double omega = 2*pi*i/((numTime+zeropad)*dt);
-    if (omega * 27.211>maxfreq) break;
-
-    double omega_si = omega*omega_au;
-    double eev = omega*27.211;
-    double k = omega_si/2.99792458e+8;
-    double pre_scat = k*k*k*k/(6*pi*8.854187e-12*8.854187e-12); 
-    double pre_abs = k/(8.854187e-12);
-    double npr = nps[i][0]/numTime;
-    double npi = nps[i][1]/numTime;
-
-    double mgr = mgs[i][0]/numTime;
-    double mgi = mgs[i][1]/numTime;
-
-    double efr = efs[i][0]/numTime;
-    double efi = efs[i][1]/numTime;
-
-    double emnpr = emiss[i][0]/numTime;
-    double emnpi = emiss[i][1]/numTime;
-    double emmgr = emissMG[i][0]/numTime;
-    double emmgi = emissMG[i][1]/numTime;
-
-    double sig_emiss_np = creal( emnpr*emnpr+emnpi*emnpi );
-    double sig_emiss_mg = creal( emmgr*emmgr+emmgi*emmgi );
-
-    double complex alphaNP = (npr+I*npi)/(efr+I*efi);
-    double complex alphaMG = (mgr+I*mgi)/(efr+I*efi);
-
-    double sig_scat_NP = pre_scat * creal(alphaNP*conj(alphaNP));
-    double sig_scat_MG = pre_scat * creal(alphaMG*conj(alphaMG));
-    double sig_abs_NP = pre_abs * cimag(alphaNP);
-    double sig_abs_MG = pre_abs * cimag(alphaMG);
-
-    // Going to print absorption and scattering cross section in m^2
-    fprintf(absfp, "  %12.10e  %12.10e  %12.10e  %12.10e  %12.10e %12.10e  %12.10e\n",eev,sig_scat_NP, sig_scat_MG, sig_abs_NP, sig_abs_MG, efr, efi);
-    fprintf(emsfp, "  %12.10e  %12.10e  %12.10e  \n",eev, sig_emiss_np, sig_emiss_mg);
   }
-  
-  fclose(absfp);
   
   return 0;
 }
@@ -791,7 +648,7 @@ double E_Field(double time) {
   //Ef = 0.01*sin(pi*time/tau)*sin(pi*time/tau)*exp(-0.005*time)*(sin(0.07423*time)+sin(0.1*time)+sin(0.5*time));
   if (time<tau) {
 
-    Ef = 0.0005*sin(time*pi/tau)*sin(time*pi/tau)*sin(0.07423*time);
+    Ef = 0.001*sin(time*pi/tau)*sin(time*pi/tau)*sin(0.07423*time);
 
   }
   else Ef = 0.;
